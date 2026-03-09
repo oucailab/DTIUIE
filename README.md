@@ -35,17 +35,16 @@ This repository contains the official implementation of the following paper:
 <tbody>
 <tr>
     <td>DTIUIE</td>
-    <th>[<a href="https://pan.baidu.com/s/1-zdVG12eH3l7mxlnmdePRg?pwd=tsgi ">Baidu Disk (pwd: tsgi)</a>] </th>
+    <th>[<a href="https://pan.baidu.com/s/1A3nXzvM7dLWm6OxAeIHWgw?pwd=nkbi">Baidu Disk (pwd: nkbi)</a>] </th>
 </tr>
 </tbody>
 </table>
 
 2. TI-UIED Dataset used in our work can be downloaded in the links below:
-TI-UIED: [<a href="">Google Drive (TBD)</a>] [<a href="">Baidu Disk (TBD)</a>]
+TI-UIED: [<a href="">Google Drive (TBD)</a>] [<a href="https://pan.baidu.com/s/1bn0ZRFZYGz1TaNzTwrDwew?pwd=v7fv">Baidu Disk (pwd: v7fv)</a>]
 
-Unzip the TI-UIED dataset and put in dir `./data/`.
+Unzip the TI-UIED dataset and put in dir `./dataset/`.
 ```bash
-cat TIUIED_* > TIUIED.tar.gz
 tar xvzf TIUIED.tar.gz
 ```
 
