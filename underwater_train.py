@@ -49,7 +49,7 @@ def get_args():
     parser.add_argument("--seed", type=int, default=2022)
 
     ### >>> [data] set data info.
-    parser.add_argument('--database', default='SUIM', type=str, help='database name')
+    parser.add_argument('--database', default='TIUIED', type=str, help='database name')
     parser.add_argument('--crop_size', type=int, default=256, help='input image size for training (default: 256)')
 
     ### >>> [model] set model info.
@@ -147,9 +147,9 @@ def train_model(args):
 
 
     ### >>> [DATA] Set up data loader.
-    if args.database == 'SUIM':
-        dir_train = "./TaskFriendly_UIE/underwater_data/trainval/"
-        dir_valid = "./TaskFriendly_UIE/underwater_data/test/"
+    if args.database == 'TIUIED':
+        dir_train = "./dataset/trainval/"
+        dir_valid = "./dataset/test/"
         args.classes = 8
     train_dataset = Paired_Set(file_path = dir_train, status='train', augmentation=True, angle=2, size_h=args.crop_size, size_w=args.crop_size, hflip_p=0.5)
     valid_dataset = Paired_Set(file_path = dir_valid, status='valid', augmentation=False, angle=0, size_h=args.crop_size, size_w=args.crop_size, hflip_p=0)
