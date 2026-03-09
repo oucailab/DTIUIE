@@ -267,6 +267,8 @@ class FactorAtt_ConvRelPosEnc(nn.Module):
         qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)  # Shape: [3, B, h, N, Ch].
         q, k, v = qkv[0], qkv[1], qkv[2]                                                 # Shape: [B, h, N, Ch].
 
+
+
         # Factorized attention.
         k_softmax = k.softmax(dim=2)                                                     # Softmax on dim N.
         k_softmax_T_dot_v = einsum('b h n k, b h n v -> b h k v', k_softmax, v)          # Shape: [B, h, Ch, Ch].
@@ -583,43 +585,16 @@ Detail Repair Branch, From: HCLR-Net: Hybrid Contrastive Learning Regularization
 class ResidualBlock(nn.Module):
     def __init__(self, in_channel, out_channel, kernel_size=3):
         super(ResidualBlock, self).__init__()
-        
-        # self.residual = nn.Sequential(
-        #     DynamicConv(in_planes=in_channel, out_planes=out_channel, kernel_size=kernel_size, stride=1, padding=(kernel_size // 2), bias=False),
-        #     nn.BatchNorm2d(out_channel),
-        #     nn.ReLU(inplace=True),
-        # )
 
-        # self.residual = nn.Sequential(
-        #     nn.Conv2d(in_channel, out_channel, kernel_size, padding=(kernel_size // 2), bias=True),
-        #     nn.GELU(),
-        #     nn.Conv2d(out_channel, out_channel, kernel_size, padding=(kernel_size // 2), bias=True),
-        #     ChannelAttentionLayer(out_channel, reduction=16),
-        #     PixelAttentionLayer(out_channel, reduction=16)
-        # )
-
-        self.bn1 = nn.BatchNorm2d(in_channel)
-        self.conv1 = nn.Conv2d(in_channel, out_channel, kernel_size, padding=(kernel_size // 2), bias=True)
-        self.act1 = nn.ReLU(inplace=True)
-        self.conv2 = nn.Conv2d(out_channel, out_channel, kernel_size, padding=(kernel_size // 2), bias=True)
-        self.calayer = ChannelAttentionLayer(out_channel, reduction=16)
-        self.palayer = PixelAttentionLayer(out_channel, reduction=16)
-
-
+        self.residual = nn.Sequential(
+            nn.Conv2d(in_channel, out_channel, kernel_size, padding=(kernel_size // 2), bias=True),
+            nn.GELU(),
+            nn.Conv2d(out_channel, out_channel, kernel_size, padding=(kernel_size // 2), bias=True),
+            ChannelAttentionLayer(out_channel, reduction=16),
+            PixelAttentionLayer(out_channel, reduction=16)
+        )
     def forward(self, x):
-        #return self.residual(x) + x
-        #return self.residual(x)
-        
-        res = self.bn1(x)
-        res = self.conv1(res)
-        res = self.act1(res)
-        res = res + x
-        res = self.conv2(res)       # From: Attention Network for Non-Uniform Deblurring
-        res = self.calayer(res)
-        res = self.palayer(res)
-        res = res + x
-
-        return res
+        return self.residual(x) + x
 
 # class SAFusion(nn.Module):
 #     def __init__(self, net_depth, dim, sa_dim):
@@ -891,93 +866,7 @@ class UNet_SA(nn.Module):
 
         return x
 
-class DynamicAttention(nn.Module):
-    def __init__(self, in_planes, ratio, K, temprature=30, init_weight=True):
-        super().__init__()
-        self.avgpool = nn.AdaptiveAvgPool2d(1)
-        self.temprature = temprature
-        assert in_planes > ratio
-        hidden_planes = in_planes // ratio
-        self.net = nn.Sequential(
-            nn.Conv2d(in_planes, hidden_planes, kernel_size=1, bias=False),
-            nn.ReLU(),
-            nn.Conv2d(hidden_planes, K, kernel_size=1, bias=False)
-        )
 
-        if init_weight:
-            self._initialize_weights()
-
-    def update_temprature(self):
-        if self.temprature > 1:
-            self.temprature -= 1
-
-    def _initialize_weights(self):
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-                if m.bias is not None:
-                    nn.init.constant_(m.bias, 0)
-            if isinstance(m, nn.BatchNorm2d):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
-
-    def forward(self, x):
-        att = self.avgpool(x)  # bs,dim,1,1
-        att = self.net(att).view(x.shape[0], -1)  # bs,K
-        return F.softmax(att / self.temprature, -1)
-
-class DynamicConv(nn.Module):
-    def __init__(self, in_planes, out_planes, kernel_size, stride, padding=0, dilation=1, groups=1, bias=True, K=4,
-                 temprature=30, ratio=2, init_weight=True):
-        super().__init__()
-        self.in_planes = in_planes
-        self.out_planes = out_planes
-        self.kernel_size = kernel_size
-        self.stride = stride
-        self.padding = padding
-        self.dilation = dilation
-        self.groups = groups
-        self.bias = bias
-        self.K = K
-        self.init_weight = init_weight
-        self.attention = DynamicAttention(in_planes=in_planes, ratio=ratio, K=K, temprature=temprature,
-                                   init_weight=init_weight)
-
-        self.weight = nn.Parameter(torch.randn(K, out_planes, in_planes // groups, kernel_size, kernel_size),
-                                   requires_grad=True)
-        if bias:
-            self.bias = nn.Parameter(torch.randn(K, out_planes), requires_grad=True)
-        else:
-            self.bias = None
-
-        if self.init_weight:
-            self._initialize_weights()
-
-        # TODO 初始化
-
-    def _initialize_weights(self):
-        for i in range(self.K):
-            nn.init.kaiming_uniform_(self.weight[i])
-
-    def forward(self, x):
-        bs, in_planels, h, w = x.shape
-        softmax_att = self.attention(x)  # bs,K
-        x = x.contiguous().view(1, -1, h, w)
-        weight = self.weight.view(self.K, -1)  # K,-1
-        aggregate_weight = torch.mm(softmax_att, weight).view(bs * self.out_planes, self.in_planes // self.groups,
-                                                              self.kernel_size, self.kernel_size)  # bs*out_p,in_p,k,k
-
-        if self.bias is not None:
-            bias = self.bias.view(self.K, -1)  # K,out_p
-            aggregate_bias = torch.mm(softmax_att, bias).view(-1)  # bs,out_p
-            output = F.conv2d(x, weight=aggregate_weight, bias=aggregate_bias, stride=self.stride, padding=self.padding,
-                              groups=self.groups * bs, dilation=self.dilation)
-        else:
-            output = F.conv2d(x, weight=aggregate_weight, bias=None, stride=self.stride, padding=self.padding,
-                              groups=self.groups * bs, dilation=self.dilation)
-
-        output = output.view(bs, self.out_planes, h, w)
-        return output
 
 
 class OriginalNet(nn.Module):
@@ -990,7 +879,7 @@ class OriginalNet(nn.Module):
         embed_dims = [256, 256, 256, 256, 256]
 
         # input convolution
-        self.inconv = ConvLayer(in_dim=3, dim=embed_dims[0], kernel_size=3)
+        self.inconv = Conv(in_channels=3, out_channels=embed_dims[0], kernel_size=3)
 
         # backbone layers
         self.block1 = ResidualBlock(in_channel=embed_dims[0], out_channel=embed_dims[0], kernel_size=kernel_size)
@@ -999,10 +888,8 @@ class OriginalNet(nn.Module):
         self.block4 = ResidualBlock(in_channel=embed_dims[2], out_channel=embed_dims[3], kernel_size=kernel_size)
         self.block5 = ResidualBlock(in_channel=embed_dims[3], out_channel=embed_dims[4], kernel_size=kernel_size)
 
-
-
         # output convolution
-        self.outconv = ConvLayer(in_dim=embed_dims[4], dim=3, kernel_size=3)
+        self.outconv = Conv(in_channels=embed_dims[4], out_channels=3, kernel_size=3)
 
 
     def forward(self, x):
@@ -1017,22 +904,6 @@ class OriginalNet(nn.Module):
 
         return out
 
-class TwoBranchNetwork(nn.Module):
-    def __init__(self, kernel_size=3):
-        super(TwoBranchNetwork, self).__init__()
-
-        self.unet = UNet(kernel_size=kernel_size)
-        self.original = OriginalNet(kernel_size=kernel_size)
-
-    def forward(self, x):
-        out_unet = self.unet(x)
-        out_original = self.original(x)
-        
-        out = out_unet + out_original
-        out = normalize_img(out)
-
-        return out
-    
 class DTIUIE(nn.Module):
     def __init__(self, kernel_size=3):
         super(DTIUIE, self).__init__()
@@ -1043,9 +914,6 @@ class DTIUIE(nn.Module):
     def forward(self, x, fs):
 
         # x = torch.log(x+1/255)*(1 - torch.log(TF.gaussian_blur(x+1/255,kernel_size=7)))    
-
-        # from torchinfo import summary
-        # summary(self.original, input_data=x)
 
         out_unet = self.unet(x, fs)
         out_original = self.original(x)
