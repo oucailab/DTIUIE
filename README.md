@@ -3,7 +3,7 @@
 This repository contains the official implementation of the following paper:
 > **Downstream Task Inspired Underwater Image Enhancement: A Perception-Aware Study from Dataset Construction to Network Design**<br>
 > Bosen Lin, Feng Gao<sup>*</sup>, Yanwei Yu, Junyu Dong, Qian Du <br>
-> IEEE Transactions on Image processing, 2025<br>
+> IEEE Transactions on Image processing, 2026<br>
 
 [[Paper](https://arxiv.org/abs/2603.01767)]
 
