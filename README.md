@@ -54,7 +54,7 @@ tar xvzf TIUIED.tar.gz
 ```
 checkpoints
     |- DTIUIE_ckpt.pth
-data
+dataset
     |- test
         |- images
             |- ***.jpg
