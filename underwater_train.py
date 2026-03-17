@@ -279,32 +279,26 @@ def train_model(args):
                 
 
                 # [Phase 0]: train SA Segmentation model.
-                if 'sa' in args.model_E:
-                    optimizer_sa.zero_grad()
-                    loss_sa_total = 0
-                    pred_mask_raw = model_SA(images, return_feats=False)
+                optimizer_sa.zero_grad()
+                loss_sa_total = 0
+                pred_mask_raw = model_SA(images, return_feats=False)
 
-                    if loss_func_seg_sa is not None:
-                        loss_seg_sa = loss_func_seg_sa(pred_mask_raw, images_mask)
-                        writer.add_scalar("training/iteration_loss_seg_sa", loss_seg_sa.item(), global_step)
-                        loss_sa_total += loss_seg_sa
+                if loss_func_seg_sa is not None:
+                    loss_seg_sa = loss_func_seg_sa(pred_mask_raw, images_mask)
+                    writer.add_scalar("training/iteration_loss_seg_sa", loss_seg_sa.item(), global_step)
+                    loss_sa_total += loss_seg_sa
 
-                    scaler_sa.scale(loss_sa_total).backward()
-                    scaler_sa.step(optimizer_sa)
-                    scaler_sa.update()
-
+                scaler_sa.scale(loss_sa_total).backward()
+                scaler_sa.step(optimizer_sa)
+                scaler_sa.update()
 
                 # [Phase 1]: train Enhancement model.
                 # for p in model_S.parameters(): p.requires_grad = False
-                if 'sa' in args.model_E:
-                    model_SA.eval()
-                    _, feat_raw = model_SA(images, return_feats=True)
-                    images_enhance = model_E(images, feat_raw)
-                    model_SA.train()
-                else:
-                    images_enhance = model_E(images)
+                model_SA.eval()
+                _, feat_raw = model_SA(images, return_feats=True)
+                images_enhance = model_E(images, feat_raw)
+                model_SA.train()
 
-                
                 optimizer.zero_grad()
                 loss_enc_total = 0
 
@@ -332,10 +326,7 @@ def train_model(args):
 
 
                 # [Phase 2]: train Segmentation model.
-                if 'sa' in args.model_E:
-                    images_enhance = model_E(images, feat_raw).detach()
-                else:
-                    images_enhance = model_E(images).detach()
+                images_enhance = model_E(images, feat_raw).detach()
 
                 for p in model_S.parameters(): p.requires_grad = True
                 optimizer_seg.zero_grad()
@@ -382,7 +373,6 @@ def train_model(args):
                 # epoch_losses_meter.update(loss.item())
                 epoch_losses_E_meter.update(loss_enc_total.item())
                 epoch_losses_S_meter.update(loss_seg_total.item())
-
 
                 pbar.update(1)
                 # pbar.set_postfix(**{'loss_E': loss_E.item(), 'loss_S': (loss_S.item()), 'ls_edge':(loss_function_edge.item()), 'lr': optimizer.param_groups[0]['lr']})
@@ -498,11 +488,8 @@ def evaluate_model(args, model_E, model_SA, dataloader, device, name):
             images_mask = batch['image_mask'].to(device)    # label: semantic label
 
             # Generate output
-            if 'sa' in name:
-                _, feat_raw = model_SA(images, return_feats=True)
-                images_enhance = model_E(images, feat_raw)
-            else:
-                images_enhance = model_E(images)
+            _, feat_raw = model_SA(images, return_feats=True)
+            images_enhance = model_E(images, feat_raw)
             
             images_pred_mask = model_SA(images_enhance)
 
