@@ -76,15 +76,14 @@ if __name__ == '__main__':
 
     # >>> [model] set model info.
     # >>> [model] set model info.
-    if  args.model_E == 'TIUIED':
+    if  args.model_E == 'DTIUIE':
         from models.enhancement.model_dtiuie import TIUIED
-        model_E = TwoBranchNetwork_SA()
+        model_E = DTIUIE()
         model_E = model_E.to(device)
         args.pretrained = './checkpoints/dtiuie_ckpt.pth'
     
 
     from models.segmentation.vgg_unet import VGG16Unet, VGG13Unet
-    from models.segmentation.resnet_unet import ResNet50Unet
 
     model_S = VGG16Unet(n_channels=3, n_classes=8, pretrained=True)
     model_S = model_S.to(device)
@@ -124,12 +123,8 @@ if __name__ == '__main__':
 
             # Generate output
             # Generate output
-            if 'sa' in args.model_E:
-                _, feat_raw = model_S(images, return_feats=True)
-                outputs = model_E(images, feat_raw)
-            else:
-                outputs = model_E(images)
-
+            _, feat_raw = model_S(images, return_feats=True)
+            outputs = model_E(images, feat_raw)
 
             if args.draw_images:
                 for i, (output, image_name) in enumerate(zip(outputs, images_names)):
